@@ -15,8 +15,6 @@ import os
 import random
 import cv2
 from sklearn.cluster import KMeans
-import pytesseract
-from pytesseract import Output
 from PIL import Image, ImageOps
 from trba_utils import AlignCollate
 
@@ -96,7 +94,7 @@ def plot_learning_curves(G_loss, D_loss, epochs, label1, label2, name):
 
 
 def plot_learning_curve(loss, epochs, name):
-  fig,ax = plt.subplots(1)
+  fig, ax = plt.subplots(1)
   n = np.arange(0, epochs)
   plt.plot(n, loss)
   plt.ylabel('Loss')
@@ -397,79 +395,54 @@ def get_optimal_font_scale(text, width, max_scale=60):
 
 
 def render_text(text, width, height, pad):
-  img = np.ones((height, width, 3))
+  img = 255 * np.ones((height, width, 3))
   pad = int(pad * width)
   scale = get_optimal_font_scale(text, width - 2 * pad)
-  cv2.putText(
+  img = cv2.putText(
     img, text, (pad, height - pad), 
     fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=scale, 
     color=(0, 0, 0), thickness=2)
   return img
 
 
-def generate_text_emb(text, width, height, resnet, pad=0.05):
+def generate_text_emb(text_img, resnet, pad=0.05):
   features = []
   def hook_features(module, input, output):
     features.append(output.squeeze())
-  resnet._modules['resnet'].layer4.register_forward_hook(hook_features)
-  img = render_text(text, width, height, pad)
-  img = img_to_tensor(img)
-  _ = resnet(img)
+  handle = resnet._modules['resnet'].layer4.register_forward_hook(hook_features)
+  text_img = text_img.float()
+  _ = resnet(text_img)
   emb_t = features[0][None, ...]
+  handle.remove()
   return emb_t
 
 
-def img_to_tensor(img):
-  img = np.transpose(img, [2, 0, 1])
-  img = torch.unsqueeze(torch.Tensor(img), 0)
-  return img
+def rgb2gray(rgb):
+  r, g, b = rgb[:, 0], rgb[:, 1], rgb[:, 2]
+  gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+  return gray[None, ...]
 
 
 def ocr(roi, width, height, converter, trba_net, opt):
-  trba_net.eval()
-  roi = convert_image_np(roi.detach())
-  # Prepare inputs.
-  roi_image = Image.fromarray(roi, mode='RGB')
-  if not opt.use_rgb:
-    roi_image = ImageOps.grayscale(roi_image)
+  roi = rgb2gray(roi)
   ac = AlignCollate(imgH=height, imgW=width, keep_ratio_with_pad=opt.pad)
-  roi_tensor = ac([roi_image])
+  roi_tensor = ac([roi]).to(opt.device)
 
   # For max length prediction.
   length_for_pred = torch.IntTensor([opt.batch_max_length]).to(opt.device)
   text_for_pred = torch.LongTensor(1, opt.batch_max_length + 1).fill_(0).to(opt.device)
-
   preds = trba_net(roi_tensor, text_for_pred, is_train=False)
-  # Select max probabilty (greedy decoding) then decode index to character.
-  _, preds_index = preds.max(2)
-  preds_str = converter.decode(preds_index, length_for_pred)
-              
-  # Process preds string and write to output.
-  final_text = preds_str[0].split('[s]')[0]
-  return final_text
+  return torch.squeeze(preds, 0)
 
 
 def calc_err_ocr(target_text, fake, converter, trba_net, opt):
   _, c, h, w = fake.shape
-  final_text = ocr(fake, w, h, converter, trba_net, opt)
-  final_text_idxs = torch.LongTensor([opt.character.index(c) for c in final_text])
-  final_text_onehot = F.one_hot(final_text_idxs, num_classes=len(opt.character))
+  final_text = ocr(fake, w, h, converter, trba_net, opt).to(opt.device)
   target_text_idxs = torch.LongTensor([opt.character.index(c) for c in target_text])
-  max_len = max(len(target_text), len(final_text))
-  if final_text_onehot.shape[0] < max_len:
-    final_text_onehot = F.pad(
-      final_text_onehot, 
-      (0, 0, 0, max_len - final_text_onehot.shape[0]), 
-      'constant', 
-      0)
-  if target_text_idxs.shape[0] < max_len:
-    target_text_idxs = F.pad(
-      target_text_idxs, 
-      (0, max_len - target_text_idxs.shape[0]), 
-      'constant', 
-      0)
+  target_text_idxs = F.pad(target_text_idxs, (0, final_text.shape[0] - len(target_text)))
+  target_text_idxs = target_text_idxs.to(opt.device)
   criterion = nn.CrossEntropyLoss()
-  err_ocr = criterion(final_text_onehot.double(), target_text_idxs)
+  err_ocr = criterion(final_text, target_text_idxs)
   return err_ocr
 
 
