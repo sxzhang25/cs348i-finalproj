@@ -46,7 +46,7 @@ def get_arguments():
         
   # Pyramid parameters.
   parser.add_argument(
-    '--patch_scale', type=int, default=1, 
+    '--patch_scale', type=int, default=0, 
     help='The scale at which to start enforcing patch discrimination loss.')
   parser.add_argument(
     '--scale_factor', type=float, default=0.75,
@@ -97,9 +97,6 @@ def get_arguments():
   parser.add_argument(
     '--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz', 
     help='Character label.')
-  parser.add_argument(
-    '--use_rgb', action='store_true', 
-    help='If true, use rgb input')
   parser.add_argument(
     '--batch_max_length', type=int, default=25, 
     help='Maximum label length.')
