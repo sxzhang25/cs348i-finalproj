@@ -8,7 +8,8 @@ from PIL import Image
 import numpy as np
 import math
 import torch
-import torchvision.transforms as transforms
+import torchvision.transforms as T
+import torch.nn.functional as F
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -187,14 +188,14 @@ class Averager(object):
 
 class ResizeNormalize(object):
 
-  def __init__(self, size, interpolation=Image.BICUBIC):
+  def __init__(self, size, interpolation='bilinear'):
     self.size = size
     self.interpolation = interpolation
-    self.toTensor = transforms.ToTensor()
+    self.toTensor = T.ToTensor()
 
   def __call__(self, img):
-    img = img.resize(self.size, self.interpolation)
-    img = self.toTensor(img)
+    # print('img shape', img.shape)
+    img = F.interpolate(img, self.size, mode=self.interpolation)
     img.sub_(0.5).div_(0.5)
     return img
 
@@ -202,7 +203,7 @@ class ResizeNormalize(object):
 class NormalizePad(object):
 
   def __init__(self, max_size, PAD_type='right'):
-    self.toTensor = transforms.ToTensor()
+    self.toTensor = T.ToTensor()
     self.max_size = max_size
     self.max_width_half = math.floor(max_size[2] / 2)
     self.PAD_type = PAD_type
@@ -224,8 +225,15 @@ class AlignCollate(object):
       self.imgH = imgH
       self.imgW = imgW
       self.keep_ratio_with_pad = keep_ratio_with_pad
+      # self.use_rgb = use_rgb
 
   def __call__(self, images):
+    # if not self.use_rgb:
+    #   grayscale_images = []
+    #   toGrayscale = T.Grayscale(num_output_channels=1)
+    #   for image in images:
+    #     grayscale_image = T.Grayscale(num_output_channels=1)(image)
+    #     grayscale_images.append(grayscale_image)
 
     if self.keep_ratio_with_pad:  # Same concept as 'Rosetta' paper.
       resized_max_w = self.imgW
@@ -244,11 +252,13 @@ class AlignCollate(object):
         resized_image = image.resize((resized_w, self.imgH), Image.BICUBIC)
         resized_images.append(transform(resized_image))
 
-      image_tensors = torch.cat([t.unsqueeze(0) for t in resized_images], 0)
+      # print('resized_images[0] shape', resized_images[0].shape)
+      image_tensors = torch.cat(resized_images, 0)
 
     else:
       transform = ResizeNormalize((self.imgW, self.imgH))
       image_tensors = [transform(image) for image in images]
-      image_tensors = torch.cat([t.unsqueeze(0) for t in image_tensors], 0)
+      # print('image_tensors[0] shape', image_tensors[0].shape)
+      image_tensors = torch.cat(image_tensors, 0)
 
     return image_tensors
