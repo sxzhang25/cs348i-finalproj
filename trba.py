@@ -54,10 +54,13 @@ class TRBA(nn.Module):
     # Prediction.
     self.Prediction = Attention(self.SequenceModeling_output, opt.hidden_size, opt.num_class)
 
+    for param in self.parameters():
+      param.requires_grad = False
+
   def forward(self, input, text, is_train=True):
     # print('trba input shape', input.shape)
     # Transformation stage.
-    if not self.stages['Trans'] == "None":
+    if not self.stages['Trans'] == 'None':
       input = self.Transformation(input)
     # print('trba input shape', input.shape)
 
