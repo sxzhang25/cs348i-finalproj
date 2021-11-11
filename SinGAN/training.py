@@ -7,10 +7,64 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data
+import time
 import math
 import numpy as np
 import matplotlib.pyplot as plt
 from SinGAN.imresize import imresize
+import tracemalloc
+import linecache
+
+
+def display_top(snapshot, key_type='lineno', limit=3):
+  snapshot = snapshot.filter_traces((
+    tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
+    tracemalloc.Filter(False, "<unknown>"),
+  ))
+  top_stats = snapshot.statistics(key_type)
+
+  print("Top %s lines" % limit)
+  for index, stat in enumerate(top_stats[:limit], 1):
+    frame = stat.traceback[0]
+    # replace "/path/to/module/file.py" with "module/file.py"
+    filename = os.sep.join(frame.filename.split(os.sep)[-2:])
+    print("#%s: %s:%s: %.1f KiB" % (index, filename, frame.lineno, stat.size / 1024))
+    line = linecache.getline(frame.filename, frame.lineno).strip()
+    if line:
+      print('    %s' % line)
+
+  other = top_stats[limit:]
+  if other:
+    size = sum(stat.size for stat in other)
+    print("%s other: %.1f KiB" % (len(other), size / 1024))
+  total = sum(stat.size for stat in top_stats)
+  print("Total allocated size: %.1f KiB" % (total / 1024))
+
+
+def get_top(snapshot, key_type='lineno', limit=3):
+  snapshot = snapshot.filter_traces((
+    tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
+    tracemalloc.Filter(False, "<unknown>"),
+  ))
+  top_stats = snapshot.statistics(key_type)
+
+  # print("Top %s lines" % limit)
+  for index, stat in enumerate(top_stats[:limit], 1):
+    frame = stat.traceback[0]
+    # replace "/path/to/module/file.py" with "module/file.py"
+    filename = os.sep.join(frame.filename.split(os.sep)[-2:])
+    # print("#%s: %s:%s: %.1f KiB" % (index, filename, frame.lineno, stat.size / 1024))
+    line = linecache.getline(frame.filename, frame.lineno).strip()
+    # if line:
+      # print('    %s' % line)
+
+  other = top_stats[limit:]
+  if other:
+    size = sum(stat.size for stat in other)
+    # print("%s other: %.1f KiB" % (len(other), size / 1024))
+  total = sum(stat.size for stat in top_stats)
+  # print("Total allocated size: %.1f KiB" % (total / 1024))
+  return total
 
 
 def train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, width, reals, NoiseAmp):
@@ -20,11 +74,6 @@ def train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, wi
   real = imresize(real_, opt.scale1, opt)
   reals = functions.creat_reals_pyramid(real, reals, opt)
   nfc_prev = 0
-
-  # Generate text image embedding.
-  fake_text = np.random.choice(word_bank, 1)[0].lower()
-  print('Fake text:', fake_text)
-  emb_t = functions.generate_text_emb(fake_text, width, height, resnet)
 
   while scale_num < opt.stop_scale + 1:
     opt.nfc = min(opt.nfc_init * pow(2, math.floor(scale_num / 4)), 128)
@@ -47,7 +96,7 @@ def train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, wi
       D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
 
     in_s, G_curr = train_single_scale(
-      D_curr, G_curr, converter, trba_net, fake_text, emb_t, emb_fixed, reals, Gs, in_s, NoiseAmp, opt)
+      D_curr, G_curr, resnet, converter, trba_net, word_bank, emb_fixed, height, width, reals, Gs, in_s, NoiseAmp, opt)
 
     G_curr = functions.reset_grads(G_curr, False)
     G_curr.eval()
@@ -66,19 +115,19 @@ def train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, wi
     del D_curr, G_curr
 
 
-def train_single_scale(netD, netG, converter, trba_net, fake_text, emb_t, emb_fixed, reals, Gs, in_s, NoiseAmp, opt, centers=None):
+def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_fixed, height, width, reals, Gs, in_s, NoiseAmp, opt, centers=None):
+  total_mem = []
+  total_time = []
   scale = len(Gs)
   real = reals[len(Gs)]
   opt.nzx = real.shape[-1]
   opt.nzy = real.shape[-2]
-  emb_t = F.interpolate(emb_t, (opt.nzy, opt.nzx))
-  emb_fixed = F.interpolate(emb_fixed, (opt.nzy, opt.nzx))
   opt.receptive_field = opt.ker_size + ((opt.ker_size - 1) * (opt.num_layer - 1)) * opt.stride
   pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2)
   pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2)
   m_noise = nn.ZeroPad2d(int(pad_noise))
   m_image = nn.ZeroPad2d(int(pad_image))
-  emb_t = m_noise(emb_t)
+  emb_fixed = F.interpolate(emb_fixed, (opt.nzy, opt.nzx))
   emb_fixed = m_noise(emb_fixed)
 
   alpha = opt.alpha
@@ -96,10 +145,23 @@ def train_single_scale(netD, netG, converter, trba_net, fake_text, emb_t, emb_fi
   z_opt2plot = []
   err_ocrplot = []
 
-  for epoch in range(opt.niter):
+
+  for (epoch, (fake_text_img, fake_text)) in zip(range(opt.niter), word_bank):
+    t0 = time.perf_counter()
+    tracemalloc.start()
+
+    # Generate text image embedding.
+    # fake_text = np.random.choice(word_bank, 1)[0].lower()
+    # fake_text = word_bank
+    fake_text = fake_text[0]
+    print('Fake text:', fake_text)
+    emb_t = functions.generate_text_emb(fake_text_img, resnet)
+    emb_t = F.interpolate(emb_t, (opt.nzy, opt.nzx))
+    emb_t = m_noise(emb_t)
+    
     ############################
     # (1) Update D network: maximize D(x) + D(G(z))
-    ###########################
+    ############################
     for j in range(opt.Dsteps):
       # Train with real example.
       netD.zero_grad()
@@ -131,11 +193,12 @@ def train_single_scale(netD, netG, converter, trba_net, fake_text, emb_t, emb_fi
         prev = m_image(prev)
 
       z_in = torch.cat([emb_t, torch.zeros((1, 3, emb_t.shape[2], emb_t.shape[3]))], axis=1)
+      z_in = z_in.to(opt.device)
       fake = netG(z_in, prev)
       gradient_penalty = 0.0
       errD_fake = 0.0
       if scale >= opt.patch_scale:
-        output = netD(fake.detach())
+        output = netD(fake)
         errD_fake = output.mean()
         errD_fake.backward(retain_graph=True)
         D_G_z = output.mean().item()
@@ -145,6 +208,7 @@ def train_single_scale(netD, netG, converter, trba_net, fake_text, emb_t, emb_fi
       gradient_penalty.backward()
       err_ocr = functions.calc_err_ocr(fake_text, fake, converter, trba_net, opt)
       err_ocr.backward()
+      fake = fake.detach()
       errD = err_ocr + errD_real + errD_fake + gradient_penalty
       optimizerD.step()
 
@@ -153,7 +217,7 @@ def train_single_scale(netD, netG, converter, trba_net, fake_text, emb_t, emb_fi
 
     ############################
     # (2) Update G network: maximize D(G(z))
-    ###########################
+    ############################
 
     for j in range(opt.Gsteps):
       netG.zero_grad()
@@ -163,9 +227,13 @@ def train_single_scale(netD, netG, converter, trba_net, fake_text, emb_t, emb_fi
       if alpha != 0:
         loss = nn.MSELoss()
         z_in_fixed = torch.cat([emb_fixed, torch.zeros((1, 3, emb_fixed.shape[2], emb_fixed.shape[3]))], axis=1)
-        rec_loss = alpha * loss(netG(z_in_fixed, z_prev), real)
+        z_in_fixed = z_in_fixed.to(opt.device)
+        recon = netG(z_in_fixed, z_prev)
+        rec_loss = alpha * loss(recon, real)
         rec_loss.backward(retain_graph=True)
         rec_loss = rec_loss.detach()
+        err_ocr = functions.calc_err_ocr(opt.text, recon, converter, trba_net, opt)
+        err_ocr.backward()
       else:
         rec_loss = 0
 
@@ -176,9 +244,11 @@ def train_single_scale(netD, netG, converter, trba_net, fake_text, emb_t, emb_fi
     z_opt2plot.append(rec_loss)
 
     if epoch % 25 == 0 or epoch == (opt.niter - 1):
-      print('scale %d: [%d/%d]' % (len(Gs), epoch, opt.niter))
+      t1 = time.perf_counter()
+      total_time.append(t1 - t0)
+      print('scale %d: [%d/%d] - %.2fs' % (len(Gs), epoch, opt.niter, t1 - t0))
 
-    if epoch % 500 == 0 or epoch == (opt.niter - 1):
+    if epoch % 100 == 0 or epoch == (opt.niter - 1):
       plt.imsave(
         '%s/fake_sample.png' % (opt.outf), 
         functions.convert_image_np(fake.detach()), vmin=0, vmax=1)
@@ -193,9 +263,15 @@ def train_single_scale(netD, netG, converter, trba_net, fake_text, emb_t, emb_fi
       functions.save_losscurve(D_fake2plot, '%s/D_fake2plot.png' % (opt.outf))
       functions.save_losscurve(z_opt2plot, '%s/z_opt2plot.png' % (opt.outf))
       functions.save_losscurve(err_ocrplot, '%s/err_ocrplot.png' % (opt.outf))
+      functions.save_losscurve(total_mem, '%s/mem_usage.png' % (opt.outf))
+      functions.save_losscurve(total_time, '%s/time_stats.png' % (opt.outf))
 
     schedulerD.step()
     schedulerG.step()
+    snapshot = tracemalloc.take_snapshot()
+    # display_top(snapshot)
+    top_mem = get_top(snapshot)
+    total_mem.append(top_mem)
 
   functions.save_networks(netG, netD, emb_fixed, opt)
   return in_s, netG    
@@ -209,9 +285,9 @@ def draw_concat(Gs, emb_t, reals, NoiseAmp, in_s, mode, m_noise, m_image, opt):
       pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2)
       for (G, real_curr, real_next, noise_amp) in zip(Gs, reals, reals[1:], NoiseAmp):
         G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
-        G_z = m_image(G_z)
+        G_z = m_image(G_z).to(opt.device)
         emb_t = F.interpolate(emb_t, (real_curr.shape[2], real_curr.shape[3]))
-        emb_t = m_noise(emb_t)
+        emb_t = m_noise(emb_t).to(opt.device)
         z_in = torch.cat([emb_t, G_z], axis=1)
         G_z = G(z_in, G_z)
         G_z = imresize(G_z.detach(), 1 / opt.scale_factor, opt)
@@ -221,9 +297,9 @@ def draw_concat(Gs, emb_t, reals, NoiseAmp, in_s, mode, m_noise, m_image, opt):
       count = 0
       for (G, real_curr, real_next, noise_amp) in zip(Gs, reals, reals[1:], NoiseAmp):
         G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
-        G_z = m_image(G_z)
+        G_z = m_image(G_z).to(opt.device)
         emb_t = F.interpolate(emb_t, (real_curr.shape[2], real_curr.shape[3]))
-        emb_t = m_noise(emb_t)
+        emb_t = m_noise(emb_t).to(opt.device)
         z_in = torch.cat([emb_t, G_z], axis=1)
         G_z = G(z_in, G_z)
         G_z = imresize(G_z.detach(), 1 / opt.scale_factor, opt)
