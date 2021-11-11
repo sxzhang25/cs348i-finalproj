@@ -52,13 +52,9 @@ class WDiscriminator(nn.Module):
       padding=opt.padd_size)
 
   def forward(self, x):
-    # print('D x shape', x.shape)
     x = self.head(x)
-    # print('D x shape', x.shape)
     x = self.body(x)
-    # print('D x shape', x.shape)
     x = self.tail(x)
-    # print('D x shape', x.shape)
     return x
 
 
@@ -94,16 +90,11 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
     )
   
   def forward(self, x, y):
-    # print('G x shape, y shape', x.shape, y.shape)
     x = self.head(x)
-    # print('G x shape', x.shape)
     x = self.body(x)
-    # print('G x shape', x.shape)
     x = self.tail(x)
-    # print('G x shape', x.shape)
     ind = int((y.shape[2] - x.shape[2]) / 2)
     y = y[:, :, ind:(y.shape[2] - ind), ind:(y.shape[3] - ind)]
-    # print('G y shape', y.shape)
     return x + y  # torch.cat([x, y], axis=1)
 
 
@@ -111,6 +102,8 @@ class ResNet34(nn.Module):
   def __init__(self, pretrained=True):
     super().__init__()
     self.resnet = torchvision.models.resnet34(pretrained=pretrained)
+    for param in self.resnet.parameters():
+      param.requires_grad = False
   
   def forward(self, x):
     outputs = self.resnet(x)
