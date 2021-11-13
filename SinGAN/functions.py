@@ -15,7 +15,7 @@ import os
 import random
 import cv2
 from sklearn.cluster import KMeans
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageFont, ImageDraw
 from trba_utils import AlignCollate
 
 
@@ -277,8 +277,8 @@ def generate_in2coarsest(reals, scale_v, scale_h, opt):
 def generate_dir2save(opt):
   dir2save = None
   if (opt.mode == 'train') | (opt.mode == 'SR_train'):
-    dir2save = 'TrainedModels/%s/scale_factor=%f,alpha=%d' % (
-      opt.input_name[:-4], opt.scale_factor_init, opt.alpha)
+    dir2save = 'TrainedModels/%s,lambda_grad=%f,lambda_ocr=%f,niter=%d/scale_factor=%f,alpha=%d' % (
+      opt.input_name[:-4], opt.lambda_grad, opt.lambda_ocr, opt.niter, opt.scale_factor_init, opt.alpha)
   elif (opt.mode == 'animation_train') :
     dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (
       opt.input_name[:-4], opt.scale_factor_init)
@@ -384,25 +384,44 @@ def dilate_mask(mask, opt):
   return mask
 
 
-def get_optimal_font_scale(text, width, max_scale=60):
-  for scale in reversed(range(0, max_scale, 1)):
-    text_size = cv2.getTextSize(
-      text, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=scale / 10, thickness=2)
-    new_width = text_size[0][0]
-    if (new_width <= width):
-      return scale / 10
-  return 1.0
+# def get_optimal_font_scale(text, width, max_scale=60):
+#   for scale in reversed(range(0, max_scale, 1)):
+#     text_size = cv2.getTextSize(
+#       text, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=scale / 10, thickness=2)
+#     new_width = text_size[0][0]
+#     if (new_width <= width):
+#       return scale / 10
+#   return 1.0
 
+
+# def render_text(text, width, height, pad):
+#   img = 255 * np.ones((height, width, 3))
+#   pad = int(pad * width)
+#   scale = get_optimal_font_scale(text, width - 2 * pad)
+#   img = cv2.putText(
+#     img, text, (pad, height - pad), 
+#     fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=scale, 
+#     color=(0, 0, 0), thickness=2)
+#   return img
+
+def add_margin(img, pad):
+  width, height = img.size
+  new_width = int((1 + 2 * pad) * width)
+  new_height = int((1 + 2 * pad) * height)
+  result = Image.new(img.mode, (new_width, new_height), (255, 255, 255))
+  result.paste(img, (int(pad * width), int(pad * height)))
+  return result
 
 def render_text(text, width, height, pad):
-  img = 255 * np.ones((height, width, 3))
-  pad = int(pad * width)
-  scale = get_optimal_font_scale(text, width - 2 * pad)
-  img = cv2.putText(
-    img, text, (pad, height - pad), 
-    fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=scale, 
-    color=(0, 0, 0), thickness=2)
-  return img
+  font = ImageFont.truetype('arial.ttf', 28, encoding='unic')
+  im = Image.new('RGB', font.getsize(text), (255, 255, 255))
+  dctx = ImageDraw.Draw(im)
+  dctx.text((0, 0), text, font=font, fill=(0, 0, 0))
+  del dctx
+  im = add_margin(im, pad)
+  im = im.resize((width, height))
+  im = np.array(im)
+  return im
 
 
 def generate_text_emb(text_img, resnet, pad=0.05):
@@ -442,7 +461,7 @@ def calc_err_ocr(target_text, fake, converter, trba_net, opt):
   target_text_idxs = F.pad(target_text_idxs, (0, final_text.shape[0] - len(target_text)))
   target_text_idxs = target_text_idxs.to(opt.device)
   criterion = nn.CrossEntropyLoss()
-  err_ocr = criterion(final_text, target_text_idxs)
+  err_ocr = opt.lambda_ocr * criterion(final_text, target_text_idxs)
   return err_ocr
 
 
