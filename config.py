@@ -85,10 +85,13 @@ def get_arguments():
     help='Discriminator inner steps')
   parser.add_argument(
     '--lambda_grad', type=float, default=0.1,
-    help='gradient penelty weight')
+    help='gradient penalty weight')
   parser.add_argument(
     '--alpha', type=float, default=10,
     help='reconstruction loss weight')
+  parser.add_argument(
+    '--lambda_ocr', type=float, default=0.1, 
+    help='text recognition loss')
 
   # TRBA text recognition args.
   parser.add_argument(
