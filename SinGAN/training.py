@@ -151,12 +151,13 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
     tracemalloc.start()
 
     # Generate text image embedding.
-    # fake_text = np.random.choice(word_bank, 1)[0].lower()
-    # fake_text = word_bank
     fake_text = fake_text[0]
     print('Fake text:', fake_text, flush=True)
-    emb_t = functions.generate_text_emb(fake_text_img, resnet)
-    emb_t = F.interpolate(emb_t, (opt.nzy, opt.nzx))
+    if opt.use_resnet:
+      emb_t = functions.generate_text_emb(fake_text_img, resnet)
+      emb_t = F.interpolate(emb_t, (opt.nzy, opt.nzx))
+    else:
+      emb_t = F.interpolate(fake_text_img.float(), (opt.nzy, opt.nzx))
     emb_t = m_noise(emb_t)
     
     ############################

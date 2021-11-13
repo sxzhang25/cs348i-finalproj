@@ -35,6 +35,9 @@ if __name__ == '__main__':
   NoiseAmp = []
   dir2save = functions.generate_dir2save(opt)
 
+  if opt.use_resnet:
+    opt.nc_z = 512
+
   # Load the weights from the pre-trained text recognition model.
   converter = AttnLabelConverter(opt.character)
   opt.num_class = len(converter.character)
@@ -61,8 +64,11 @@ if __name__ == '__main__':
   
   fixed_text_img = functions.render_text(opt.text, width, height, opt.pad)[None, ...]
   fixed_text_img = torch.Tensor(np.transpose(fixed_text_img, [0, 3, 1, 2]))
-  emb_fixed = functions.generate_text_emb(fixed_text_img, resnet)
-
+  if opt.use_resnet:
+    emb_fixed = functions.generate_text_emb(fixed_text_img, resnet)
+  else:
+    emb_fixed = fixed_text_img
+  
   # Create word dataloader.
   word_bank = create_dataset(words.words(), width, height, opt.pad)
 
