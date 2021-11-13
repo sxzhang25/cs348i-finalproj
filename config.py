@@ -18,7 +18,7 @@ def get_arguments():
     '--manualSeed', type=int, 
     help='Manual seed.')
   parser.add_argument(
-    '--nc_z',type=int, default=512,
+    '--nc_z',type=int, default=3,
     help='Noise # channels.')
   parser.add_argument(
     '--nc_im', type=int, default=3,
@@ -26,6 +26,9 @@ def get_arguments():
   parser.add_argument(
     '--out', default='Output',
     help='Output folder.')
+  parser.add_argument(
+    '--use_resnet', action='store_true', 
+    help='If true, use ResNet embeddings as input. Otherwise, use rendered plaintext.')
         
   # Networks hyper parameters.
   parser.add_argument(
