@@ -39,7 +39,7 @@ if __name__ == '__main__':
   converter = AttnLabelConverter(opt.character)
   opt.num_class = len(converter.character)
 
-  print('[INFO] loading TRBA text recognition model...')
+  print('[INFO] loading TRBA text recognition model...', flush=True)
   trba_net = TRBA(opt).to(opt.device)
   model_dict = torch.load(opt.trba, map_location=opt.device)
   # Remove "module." from key names because we are not using DataParallel.
@@ -66,5 +66,9 @@ if __name__ == '__main__':
   # Create word dataloader.
   word_bank = create_dataset(words.words(), width, height, opt.pad)
 
+  # Print configs.
+  print('CONFIGS:', opt, '\n')
+
+  # Start training.
   train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, width, reals, NoiseAmp) # opt, Gs, word_bank, resnet, emb_fixed, reals, NoiseAmp
   # SinGAN_generate(Gs, Zs, reals, NoiseAmp, opt)
