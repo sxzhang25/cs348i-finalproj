@@ -384,26 +384,6 @@ def dilate_mask(mask, opt):
   return mask
 
 
-# def get_optimal_font_scale(text, width, max_scale=60):
-#   for scale in reversed(range(0, max_scale, 1)):
-#     text_size = cv2.getTextSize(
-#       text, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=scale / 10, thickness=2)
-#     new_width = text_size[0][0]
-#     if (new_width <= width):
-#       return scale / 10
-#   return 1.0
-
-
-# def render_text(text, width, height, pad):
-#   img = 255 * np.ones((height, width, 3))
-#   pad = int(pad * width)
-#   scale = get_optimal_font_scale(text, width - 2 * pad)
-#   img = cv2.putText(
-#     img, text, (pad, height - pad), 
-#     fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=scale, 
-#     color=(0, 0, 0), thickness=2)
-#   return img
-
 def add_margin(img, pad):
   width, height = img.size
   new_width = int((1 + 2 * pad) * width)
@@ -411,6 +391,7 @@ def add_margin(img, pad):
   result = Image.new(img.mode, (new_width, new_height), (255, 255, 255))
   result.paste(img, (int(pad * width), int(pad * height)))
   return result
+
 
 def render_text(text, width, height, pad):
   font = ImageFont.truetype('arial.ttf', 28, encoding='unic')
