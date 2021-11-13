@@ -145,16 +145,16 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
   z_opt2plot = []
   err_ocrplot = []
 
-
+  t0 = time.perf_counter()
   for (epoch, (fake_text_img, fake_text)) in zip(range(opt.niter), word_bank):
-    t0 = time.perf_counter()
+    t1 = time.perf_counter()
     tracemalloc.start()
 
     # Generate text image embedding.
     # fake_text = np.random.choice(word_bank, 1)[0].lower()
     # fake_text = word_bank
     fake_text = fake_text[0]
-    print('Fake text:', fake_text)
+    print('Fake text:', fake_text, flush=True)
     emb_t = functions.generate_text_emb(fake_text_img, resnet)
     emb_t = F.interpolate(emb_t, (opt.nzy, opt.nzx))
     emb_t = m_noise(emb_t)
@@ -244,9 +244,9 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
     z_opt2plot.append(rec_loss)
 
     if epoch % 25 == 0 or epoch == (opt.niter - 1):
-      t1 = time.perf_counter()
+      t2 = time.perf_counter()
       total_time.append(t1 - t0)
-      print('scale %d: [%d/%d] - %.2fs' % (len(Gs), epoch, opt.niter, t1 - t0))
+      print('scale %d: [%d/%d] - %.2fs / %.2fs' % (len(Gs), epoch, opt.niter, t2 - t1, t2 - t0), flush=True)
 
     if epoch % 100 == 0 or epoch == (opt.niter - 1):
       plt.imsave(
@@ -314,13 +314,13 @@ def init_models(opt):
   netG.apply(models.weights_init)
   if opt.netG != '':
     netG.load_state_dict(torch.load(opt.netG))
-  print(netG)
+  print(netG, flush=True)
 
   # Initialize discriminator.
   netD = models.WDiscriminator(opt).to(opt.device)
   netD.apply(models.weights_init)
   if opt.netD != '':
     netD.load_state_dict(torch.load(opt.netD))
-  print(netD)
+  print(netD, flush=True)
 
   return netD, netG
