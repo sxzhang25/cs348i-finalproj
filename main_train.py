@@ -70,7 +70,7 @@ if __name__ == '__main__':
     emb_fixed = fixed_text_img
   
   # Create word dataloader.
-  word_bank = create_dataset(words.words(), width, height, opt.pad)
+  word_bank = create_dataset(words.words(), opt.character, width, height, opt.pad)
 
   # Print configs.
   print('CONFIGS:', opt, '\n')
