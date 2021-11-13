@@ -255,7 +255,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
         functions.convert_image_np(fake.detach()), vmin=0, vmax=1)
       plt.imsave(
         '%s/G(z_opt).png' % (opt.outf), 
-        functions.convert_image_np(netG(z_in.detach(), z_prev).detach()), vmin=0, vmax=1)
+        functions.convert_image_np(netG(z_in_fixed.detach(), z_prev).detach()), vmin=0, vmax=1)
       torch.save(emb_fixed, '%s/emb_fixed.pth' % (opt.outf))
 
       functions.save_losscurve(errD2plot, '%s/errD2plot.png' % (opt.outf))
