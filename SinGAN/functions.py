@@ -400,8 +400,11 @@ def render_text(text, width, height, pad):
   dctx.text((0, 0), text, font=font, fill=(0, 0, 0))
   del dctx
   im = add_margin(im, pad)
-  im = im.resize((width, height))
-  im = np.array(im)
+  scale = min(width / im.size[0], height / im.size[1])
+  im = im.resize((int(scale * im.size[0]), int(scale * im.size[1])))
+  result = Image.new(im.mode, (width, height), (255, 255, 255))
+  result.paste(im, ((width - im.size[0]) // 2, (height - im.size[1]) // 2))
+  im = np.array(result)
   return im
 
 
