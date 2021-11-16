@@ -277,8 +277,8 @@ def generate_in2coarsest(reals, scale_v, scale_h, opt):
 def generate_dir2save(opt):
   dir2save = None
   if (opt.mode == 'train') | (opt.mode == 'SR_train'):
-    dir2save = 'TrainedModels/%s,lambda_grad=%f,lambda_ocr=%f,niter=%d/scale_factor=%f,alpha=%d' % (
-      opt.input_name[:-4], opt.lambda_grad, opt.lambda_ocr, opt.niter, opt.scale_factor_init, opt.alpha)
+    dir2save = 'TrainedModels/%s,lambda_grad=%f,lambda_ocr=%f,niter=%d,pscale=%d/scale_factor=%f,alpha=%d' % (
+      opt.input_name[:-4], opt.lambda_grad, opt.lambda_ocr, opt.niter, opt.patch_scale, opt.scale_factor_init, opt.alpha)
   elif (opt.mode == 'animation_train') :
     dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (
       opt.input_name[:-4], opt.scale_factor_init)
@@ -313,7 +313,7 @@ def post_config(opt):
   # Initialize fixed parameters.
   opt.device = torch.device('cpu' if opt.not_cuda else 'cuda:0')
   opt.niter_init = opt.niter
-  opt.noise_amp_init = opt.noise_amp
+  #opt.noise_amp_init = opt.noise_amp
   opt.nfc_init = opt.nfc
   opt.min_nfc_init = opt.min_nfc
   opt.scale_factor_init = opt.scale_factor
