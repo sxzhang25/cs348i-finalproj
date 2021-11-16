@@ -32,7 +32,6 @@ if __name__ == '__main__':
   Gs = []
   Zs = []
   reals = []
-  NoiseAmp = []
   dir2save = functions.generate_dir2save(opt)
 
   if opt.use_resnet:
@@ -76,5 +75,5 @@ if __name__ == '__main__':
   print('CONFIGS:', opt, '\n')
 
   # Start training.
-  train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, width, reals, NoiseAmp) # opt, Gs, word_bank, resnet, emb_fixed, reals, NoiseAmp
+  train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, width, reals)
   # SinGAN_generate(Gs, Zs, reals, NoiseAmp, opt)

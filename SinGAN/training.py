@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from SinGAN.imresize import imresize
 import tracemalloc
 import linecache
+import imageio
 
 
 def display_top(snapshot, key_type='lineno', limit=3):
@@ -67,7 +68,7 @@ def get_top(snapshot, key_type='lineno', limit=3):
   return total
 
 
-def train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, width, reals, NoiseAmp):
+def train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, width, reals):
   real_ = functions.read_image(opt)
   in_s = 0
   scale_num = 0
@@ -96,7 +97,7 @@ def train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, wi
       D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
 
     in_s, G_curr = train_single_scale(
-      D_curr, G_curr, resnet, converter, trba_net, word_bank, emb_fixed, height, width, reals, Gs, in_s, NoiseAmp, opt)
+      D_curr, G_curr, resnet, converter, trba_net, word_bank, emb_fixed, height, width, reals, Gs, in_s, opt)
 
     G_curr = functions.reset_grads(G_curr, False)
     G_curr.eval()
@@ -104,20 +105,20 @@ def train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, wi
     D_curr.eval()
 
     Gs.append(G_curr)
-    NoiseAmp.append(opt.noise_amp)
 
     torch.save(Gs, '%s/Gs.pth' % (opt.out_))
     torch.save(reals, '%s/reals.pth' % (opt.out_))
-    torch.save(NoiseAmp, '%s/NoiseAmp.pth' % (opt.out_))
 
     scale_num += 1
     nfc_prev = opt.nfc
     del D_curr, G_curr
 
 
-def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_fixed, height, width, reals, Gs, in_s, NoiseAmp, opt, centers=None):
+def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_fixed, height, width, reals, Gs, in_s, opt, centers=None):
   total_mem = []
   total_time = []
+  recons = []
+  fakes = []
   scale = len(Gs)
   real = reals[len(Gs)]
   opt.nzx = real.shape[-1]
@@ -180,17 +181,13 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
           prev = m_image(prev)
           z_prev = torch.full([1, opt.nc_im, opt.nzy, opt.nzx], 0, device=opt.device)
           z_prev = m_noise(z_prev)
-          opt.noise_amp = 1
         else:
-          prev = draw_concat(Gs, emb_t, reals, NoiseAmp, in_s, 'rand', m_noise, m_image, opt)
+          prev = draw_concat(Gs, emb_t, reals, in_s, 'rand', m_noise, m_image, opt)
           prev = m_image(prev)
-          z_prev = draw_concat(Gs, emb_fixed, reals, NoiseAmp, in_s, 'rec', m_noise, m_image, opt)
-          criterion = nn.MSELoss()
-          RMSE = torch.sqrt(criterion(real, z_prev))
-          opt.noise_amp = opt.noise_amp_init * RMSE
+          z_prev = draw_concat(Gs, emb_fixed, reals, in_s, 'rec', m_noise, m_image, opt)
           z_prev = m_image(z_prev)
       else:
-        prev = draw_concat(Gs, emb_t, reals, NoiseAmp, in_s, 'rand', m_noise, m_image,opt)
+        prev = draw_concat(Gs, emb_t, reals, in_s, 'rand', m_noise, m_image, opt)
         prev = m_image(prev)
 
       z_in = torch.cat([emb_t, torch.zeros((1, 3, emb_t.shape[2], emb_t.shape[3]))], axis=1)
@@ -240,7 +237,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
 
       optimizerG.step()
 
-    errG2plot.append(errG.detach() + rec_loss)
+    errG2plot.append(errG.detach() + rec_loss + err_ocr)
     D_real2plot.append(D_x)
     z_opt2plot.append(rec_loss)
 
@@ -249,13 +246,15 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       total_time.append(t1 - t0)
       print('scale %d: [%d/%d] - %.2fs / %.2fs' % (len(Gs), epoch, opt.niter, t2 - t1, t2 - t0), flush=True)
 
-    if epoch % 100 == 0 or epoch == (opt.niter - 1):
+    if epoch % opt.save_freq == 0 or epoch == (opt.niter - 1):
+      fake_img = functions.convert_image_np(fake.detach())
       plt.imsave(
-        '%s/fake_sample.png' % (opt.outf), 
-        functions.convert_image_np(fake.detach()), vmin=0, vmax=1)
+        '%s/fake_sample.png' % (opt.outf), fake_img, vmin=0, vmax=1)
+      fakes.append(fake_img)
+      recon_img = functions.convert_image_np(netG(z_in_fixed.detach(), z_prev).detach())
       plt.imsave(
-        '%s/G(z_opt).png' % (opt.outf), 
-        functions.convert_image_np(netG(z_in_fixed.detach(), z_prev).detach()), vmin=0, vmax=1)
+        '%s/G(z_opt).png' % (opt.outf), recon_img, vmin=0, vmax=1)
+      recons.append(recon_img)
       torch.save(emb_fixed, '%s/emb_fixed.pth' % (opt.outf))
 
       functions.save_losscurve(errD2plot, '%s/errD2plot.png' % (opt.outf))
@@ -275,16 +274,18 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
     total_mem.append(top_mem)
 
   functions.save_networks(netG, netD, emb_fixed, opt)
+  imageio.mimsave('%s/fake.gif' % (opt.outf), fakes)
+  imageio.mimsave('%s/recon.gif' % (opt.outf), recons)
   return in_s, netG    
 
 
-def draw_concat(Gs, emb_t, reals, NoiseAmp, in_s, mode, m_noise, m_image, opt):
+def draw_concat(Gs, emb_t, reals, in_s, mode, m_noise, m_image, opt):
   G_z = in_s
   if len(Gs) > 0:
     if mode == 'rand':
       count = 0
       pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2)
-      for (G, real_curr, real_next, noise_amp) in zip(Gs, reals, reals[1:], NoiseAmp):
+      for (G, real_curr, real_next) in zip(Gs, reals, reals[1:]):
         G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
         G_z = m_image(G_z).to(opt.device)
         emb_t = F.interpolate(emb_t, (real_curr.shape[2], real_curr.shape[3]))
@@ -296,7 +297,7 @@ def draw_concat(Gs, emb_t, reals, NoiseAmp, in_s, mode, m_noise, m_image, opt):
         count += 1
     if mode == 'rec':
       count = 0
-      for (G, real_curr, real_next, noise_amp) in zip(Gs, reals, reals[1:], NoiseAmp):
+      for (G, real_curr, real_next) in zip(Gs, reals, reals[1:]):
         G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
         G_z = m_image(G_z).to(opt.device)
         emb_t = F.interpolate(emb_t, (real_curr.shape[2], real_curr.shape[3]))
