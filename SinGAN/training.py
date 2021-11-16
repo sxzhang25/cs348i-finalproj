@@ -192,6 +192,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
 
       z_in = emb_t #torch.cat([emb_t, torch.zeros((1, 3, emb_t.shape[2], emb_t.shape[3]))], axis=1)
       z_in = z_in.to(opt.device)
+      prev = prev.to(opt.device)
       fake = netG(prev)
       gradient_penalty = 0.0
       errD_fake = 0.0
@@ -226,6 +227,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
         loss = nn.MSELoss()
         z_in_fixed = emb_fixed #torch.cat([emb_fixed, torch.zeros((1, 3, emb_fixed.shape[2], emb_fixed.shape[3]))], axis=1)
         z_in_fixed = z_in_fixed.to(opt.device)
+        z_prev = z_prev.to(opt.device)
         recon = netG(z_prev)
         rec_loss = alpha * loss(recon, real)
         rec_loss.backward(retain_graph=True)
@@ -247,11 +249,11 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       print('scale %d: [%d/%d] - %.2fs / %.2fs' % (len(Gs), epoch, opt.niter, t2 - t1, t2 - t0), flush=True)
 
     if epoch % opt.save_freq == 0 or epoch == (opt.niter - 1):
-      fake_img = np.uint8(255 * functions.convert_image_np(fake.detach()))
+      fake_img = functions.convert_image_np(fake.detach())
       plt.imsave(
         '%s/fake_sample.png' % (opt.outf), fake_img, vmin=0, vmax=1)
       fakes.append(fake_img)
-      recon_img = np.uint8(255 * functions.convert_image_np(netG(z_prev).detach()))
+      recon_img = functions.convert_image_np(netG(z_prev).detach())
       plt.imsave(
         '%s/G(z_opt).png' % (opt.outf), recon_img, vmin=0, vmax=1)
       recons.append(recon_img)
