@@ -190,7 +190,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
         prev = draw_concat(Gs, emb_t, reals, in_s, 'rand', m_noise, m_image, opt)
         prev = m_image(prev)
 
-      z_in = torch.cat([emb_t, torch.zeros((1, 3, emb_t.shape[2], emb_t.shape[3]))], axis=1)
+      z_in = emb_t #torch.cat([emb_t, torch.zeros((1, 3, emb_t.shape[2], emb_t.shape[3]))], axis=1)
       z_in = z_in.to(opt.device)
       fake = netG(z_in, prev)
       gradient_penalty = 0.0
@@ -224,7 +224,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       errG.backward(retain_graph=True)
       if alpha != 0:
         loss = nn.MSELoss()
-        z_in_fixed = torch.cat([emb_fixed, torch.zeros((1, 3, emb_fixed.shape[2], emb_fixed.shape[3]))], axis=1)
+        z_in_fixed = emb_fixed #torch.cat([emb_fixed, torch.zeros((1, 3, emb_fixed.shape[2], emb_fixed.shape[3]))], axis=1)
         z_in_fixed = z_in_fixed.to(opt.device)
         recon = netG(z_in_fixed, z_prev)
         rec_loss = alpha * loss(recon, real)
@@ -290,7 +290,7 @@ def draw_concat(Gs, emb_t, reals, in_s, mode, m_noise, m_image, opt):
         G_z = m_image(G_z).to(opt.device)
         emb_t = F.interpolate(emb_t, (real_curr.shape[2], real_curr.shape[3]))
         emb_t = m_noise(emb_t).to(opt.device)
-        z_in = torch.cat([emb_t, G_z], axis=1)
+        z_in = G_z #torch.cat([emb_t, G_z], axis=1)
         G_z = G(z_in, G_z)
         G_z = imresize(G_z.detach(), 1 / opt.scale_factor, opt)
         G_z = G_z[:, :, 0:real_next.shape[2], 0:real_next.shape[3]]
@@ -302,7 +302,7 @@ def draw_concat(Gs, emb_t, reals, in_s, mode, m_noise, m_image, opt):
         G_z = m_image(G_z).to(opt.device)
         emb_t = F.interpolate(emb_t, (real_curr.shape[2], real_curr.shape[3]))
         emb_t = m_noise(emb_t).to(opt.device)
-        z_in = torch.cat([emb_t, G_z], axis=1)
+        z_in = G_z #torch.cat([emb_t, G_z], axis=1)
         G_z = G(z_in, G_z)
         G_z = imresize(G_z.detach(), 1 / opt.scale_factor, opt)
         G_z = G_z[:, :, 0:real_next.shape[2], 0:real_next.shape[3]]
