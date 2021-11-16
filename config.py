@@ -29,6 +29,9 @@ def get_arguments():
   parser.add_argument(
     '--use_resnet', action='store_true', 
     help='If true, use ResNet embeddings as input. Otherwise, use rendered plaintext.')
+  parser.add_argument(
+    '--save_freq', type=int, default=25, 
+    help='Save every k steps.')
         
   # Networks hyper parameters.
   parser.add_argument(
@@ -49,7 +52,7 @@ def get_arguments():
         
   # Pyramid parameters.
   parser.add_argument(
-    '--patch_scale', type=int, default=0, 
+    '--patch_scale', type=int, default=1, 
     help='The scale at which to start enforcing patch discrimination loss.')
   parser.add_argument(
     '--scale_factor', type=float, default=0.75,
