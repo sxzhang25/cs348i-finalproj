@@ -15,6 +15,7 @@ from SinGAN.imresize import imresize
 import tracemalloc
 import linecache
 import imageio
+import cv2
 
 
 def display_top(snapshot, key_type='lineno', limit=3):
@@ -70,7 +71,7 @@ def get_top(snapshot, key_type='lineno', limit=3):
 
 def train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, width, reals):
   real_ = functions.read_image(opt)
-  in_s = 0
+  in_s = [0, 0]
   scale_num = 0
   real = imresize(real_, opt.scale1, opt)
   reals = functions.creat_reals_pyramid(real, reals, opt)
@@ -177,17 +178,20 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       if (j == 0) & (epoch == 0):
         if (Gs == []):
           prev = emb_t #torch.full([1, opt.nc_im, opt.nzy, opt.nzx], 0, device=opt.device)
-          in_s = prev
-          prev = m_image(prev)
           z_prev = emb_fixed #torch.full([1, opt.nc_im, opt.nzy, opt.nzx], 0, device=opt.device)
+          in_s = [prev, z_prev]
+          prev = m_image(prev)
           z_prev = m_noise(z_prev)
         else:
-          prev = draw_concat(Gs, emb_t, reals, in_s, 'rand', m_noise, m_image, opt)
+          prev = draw_concat(Gs, emb_t, reals, in_s[0], 'rand', m_noise, m_image, opt)
           prev = m_image(prev)
-          z_prev = draw_concat(Gs, emb_fixed, reals, in_s, 'rec', m_noise, m_image, opt)
+          z_prev = draw_concat(Gs, emb_fixed, reals, in_s[1], 'rec', m_noise, m_image, opt)
           z_prev = m_image(z_prev)
+          # z_prev_show = np.transpose(np.squeeze(z_prev.detach().numpy()), [1, 2, 0])
+          # cv2.imshow('z_prev_show', z_prev_show)
+          # cv2.waitKey(0)
       else:
-        prev = draw_concat(Gs, emb_t, reals, in_s, 'rand', m_noise, m_image, opt)
+        prev = draw_concat(Gs, emb_t, reals, in_s[0], 'rand', m_noise, m_image, opt)
         prev = m_image(prev)
 
       z_in = emb_t #torch.cat([emb_t, torch.zeros((1, 3, emb_t.shape[2], emb_t.shape[3]))], axis=1)
