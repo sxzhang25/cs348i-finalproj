@@ -89,13 +89,13 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
       nn.Tanh()
     )
   
-  def forward(self, x, y):
-    x = self.head(x)
-    x = self.body(x)
-    x = self.tail(x)
-    ind = int((y.shape[2] - x.shape[2]) / 2)
-    y = y[:, :, ind:(y.shape[2] - ind), ind:(y.shape[3] - ind)]
-    return x + y  # torch.cat([x, y], axis=1)
+  def forward(self, x):
+    x_ = self.head(x)
+    x_ = self.body(x_)
+    x_ = self.tail(x_)
+    ind = int((x.shape[2] - x_.shape[2]) / 2)
+    x = x[:, :, ind:(x.shape[2] - ind), ind:(x.shape[3] - ind)]
+    return x + x_  # torch.cat([x, y], axis=1)
 
 
 class ResNet34(nn.Module):
