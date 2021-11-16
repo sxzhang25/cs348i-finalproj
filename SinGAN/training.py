@@ -247,11 +247,11 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       print('scale %d: [%d/%d] - %.2fs / %.2fs' % (len(Gs), epoch, opt.niter, t2 - t1, t2 - t0), flush=True)
 
     if epoch % opt.save_freq == 0 or epoch == (opt.niter - 1):
-      fake_img = functions.convert_image_np(fake.detach())
+      fake_img = np.uint8(255 * functions.convert_image_np(fake.detach()))
       plt.imsave(
         '%s/fake_sample.png' % (opt.outf), fake_img, vmin=0, vmax=1)
       fakes.append(fake_img)
-      recon_img = functions.convert_image_np(netG(z_in_fixed.detach(), z_prev).detach())
+      recon_img = np.uint8(255 * functions.convert_image_np(netG(z_in_fixed.detach(), z_prev).detach()))
       plt.imsave(
         '%s/G(z_opt).png' % (opt.outf), recon_img, vmin=0, vmax=1)
       recons.append(recon_img)
