@@ -16,7 +16,7 @@ class WordDataset(Dataset):
     return len(self.word_bank)
 
   def __getitem__(self, idx):
-    word = self.word_bank[idx].lower()
+    word = self.word_bank[idx]
     word = ''.join([c for c in word if c in self.character])
     X = render_text(word, self.width, self.height, self.pad)
     X = np.transpose(X, [2, 0, 1])
