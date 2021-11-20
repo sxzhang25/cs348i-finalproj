@@ -10,6 +10,7 @@ from trba import TRBA
 from trba_utils import AttnLabelConverter
 import cv2
 import torch
+import string
 
 
 if __name__ == '__main__':
@@ -36,6 +37,8 @@ if __name__ == '__main__':
 
   if opt.use_resnet:
     opt.nc_z = 512
+  if opt.sensitive:
+    opt.character = string.printable[:-6]
 
   # Load the weights from the pre-trained text recognition model.
   converter = AttnLabelConverter(opt.character)

@@ -101,7 +101,7 @@ def get_arguments():
 
   # TRBA text recognition args.
   parser.add_argument(
-    '--trba', default='models/TPS-ResNet-BiLSTM-Attn.pth', type=str, 
+    '--trba', default='models/TPS-ResNet-BiLSTM-Attn-case-sensitive.pth', type=str, 
     help='Path to TRBA model.')
   parser.add_argument(
     '--character', type=str, default='0123456789abcdefghijklmnopqrstuvwxyz', 
@@ -130,5 +130,8 @@ def get_arguments():
   parser.add_argument(
     '--hidden_size', type=int, default=256, 
     help='The size of the LSTM hidden state.')
+  parser.add_argument(
+    '--sensitive', action='store_true', default=False, 
+    help='Set to true if using character sensitive model.')
     
   return parser
