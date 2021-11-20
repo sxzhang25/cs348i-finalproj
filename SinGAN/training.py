@@ -130,7 +130,6 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
   m_noise = nn.ZeroPad2d(int(pad_noise))
   m_image = nn.ZeroPad2d(int(pad_image))
   emb_fixed = F.interpolate(emb_fixed, (opt.nzy, opt.nzx))
-  # emb_fixed = m_noise(emb_fixed)
 
   alpha = opt.alpha
 
@@ -177,8 +176,8 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       # Train with fake example.
       if (j == 0) & (epoch == 0):
         if (Gs == []):
-          prev = emb_t #torch.full([1, opt.nc_im, opt.nzy, opt.nzx], 0, device=opt.device)
-          z_prev = emb_fixed #torch.full([1, opt.nc_im, opt.nzy, opt.nzx], 0, device=opt.device)
+          prev = emb_t
+          z_prev = emb_fixed
           in_s = [prev, z_prev]
           prev = m_image(prev)
           z_prev = m_noise(z_prev)
@@ -187,14 +186,11 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
           prev = m_image(prev)
           z_prev = draw_concat(Gs, emb_fixed, reals, in_s[1], 'rec', m_noise, m_image, opt)
           z_prev = m_image(z_prev)
-          # z_prev_show = np.transpose(np.squeeze(z_prev.detach().numpy()), [1, 2, 0])
-          # cv2.imshow('z_prev_show', z_prev_show)
-          # cv2.waitKey(0)
       else:
         prev = draw_concat(Gs, emb_t, reals, in_s[0], 'rand', m_noise, m_image, opt)
         prev = m_image(prev)
 
-      z_in = emb_t #torch.cat([emb_t, torch.zeros((1, 3, emb_t.shape[2], emb_t.shape[3]))], axis=1)
+      z_in = emb_t
       z_in = z_in.to(opt.device)
       prev = prev.to(opt.device)
       fake = netG(prev)
@@ -229,7 +225,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       errG.backward(retain_graph=True)
       if alpha != 0:
         loss = nn.MSELoss()
-        z_in_fixed = emb_fixed #torch.cat([emb_fixed, torch.zeros((1, 3, emb_fixed.shape[2], emb_fixed.shape[3]))], axis=1)
+        z_in_fixed = emb_fixed
         z_in_fixed = z_in_fixed.to(opt.device)
         z_prev = z_prev.to(opt.device)
         recon = netG(z_prev)
@@ -294,9 +290,7 @@ def draw_concat(Gs, emb_t, reals, in_s, mode, m_noise, m_image, opt):
       for (G, real_curr, real_next) in zip(Gs, reals, reals[1:]):
         G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
         G_z = m_image(G_z).to(opt.device)
-        # emb_t = F.interpolate(emb_t, (real_curr.shape[2], real_curr.shape[3]))
-        # emb_t = m_noise(emb_t).to(opt.device)
-        z_in = G_z #torch.cat([emb_t, G_z], axis=1)
+        z_in = G_z
         G_z = G(G_z)
         G_z = imresize(G_z.detach(), 1 / opt.scale_factor, opt)
         G_z = G_z[:, :, 0:real_next.shape[2], 0:real_next.shape[3]]
@@ -306,9 +300,7 @@ def draw_concat(Gs, emb_t, reals, in_s, mode, m_noise, m_image, opt):
       for (G, real_curr, real_next) in zip(Gs, reals, reals[1:]):
         G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
         G_z = m_image(G_z).to(opt.device)
-        # emb_t = F.interpolate(emb_t, (real_curr.shape[2], real_curr.shape[3]))
-        # emb_t = m_noise(emb_t).to(opt.device)
-        z_in = G_z #torch.cat([emb_t, G_z], axis=1)
+        z_in = G_z
         G_z = G(G_z)
         G_z = imresize(G_z.detach(), 1 / opt.scale_factor, opt)
         G_z = G_z[:, :, 0:real_next.shape[2], 0:real_next.shape[3]]

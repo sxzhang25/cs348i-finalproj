@@ -394,7 +394,7 @@ def add_margin(img, pad):
 
 
 def render_text(text, width, height, pad):
-  font = ImageFont.truetype('arial.ttf', 28, encoding='unic')
+  font = ImageFont.truetype('arial_bold.ttf', 28, encoding='unic')
   im = Image.new('RGB', font.getsize(text), (255, 255, 255))
   dctx = ImageDraw.Draw(im)
   dctx.text((0, 0), text, font=font, fill=(0, 0, 0))
