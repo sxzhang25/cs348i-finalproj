@@ -277,8 +277,8 @@ def generate_in2coarsest(reals, scale_v, scale_h, opt):
 def generate_dir2save(opt):
   dir2save = None
   if (opt.mode == 'train') | (opt.mode == 'SR_train'):
-    dir2save = 'TrainedModels/%s,lambda_grad=%f,lambda_ocr=%f,niter=%d,pscale=%d,s=%s/scale_factor=%f,alpha=%d' % (
-      opt.input_name[:-4], opt.lambda_grad, opt.lambda_ocr, opt.niter, opt.patch_scale, opt.sensitive, opt.scale_factor_init, opt.alpha)
+    dir2save = 'TrainedModels/%s,lambda_grad=%f,lambda_ocr=%f,niter=%d,pscale=%d,s=%s,ci=%s/scale_factor=%f,alpha=%d' % (
+      opt.input_name[:-4], opt.lambda_grad, opt.lambda_ocr, opt.niter, opt.patch_scale, opt.sensitive, opt.concat_input, opt.scale_factor_init, opt.alpha)
   elif (opt.mode == 'animation_train') :
     dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (
       opt.input_name[:-4], opt.scale_factor_init)

@@ -190,10 +190,13 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
         prev = draw_concat(Gs, emb_t, reals, in_s[0], 'rand', m_noise, m_image, opt)
         prev = m_image(prev)
 
-      z_in = emb_t
+      if opt.concat_input:
+        z_in = torch.cat([emb_t, prev], axis=1)
+      else:
+       .z_in = prev
       z_in = z_in.to(opt.device)
-      prev = prev.to(opt.device)
-      fake = netG(prev)
+      #prev = prev.to(opt.device)
+      fake = netG(z_in) #netG(prev)
       gradient_penalty = 0.0
       errD_fake = 0.0
       if scale >= opt.patch_scale:
@@ -225,10 +228,13 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       errG.backward(retain_graph=True)
       if alpha != 0:
         loss = nn.MSELoss()
-        z_in_fixed = emb_fixed
+        if opt.concat_input:
+          z_in_fixed = torch.cat([emb_fixed, z_prev], axis=1)
+        else:
+          z_in_fixed = emb_fixed
         z_in_fixed = z_in_fixed.to(opt.device)
-        z_prev = z_prev.to(opt.device)
-        recon = netG(z_prev)
+        #z_prev = z_prev.to(opt.device)
+        recon = netG(z_in_fixed)#netG(z_prev)
         rec_loss = alpha * loss(recon, real)
         rec_loss.backward(retain_graph=True)
         rec_loss = rec_loss.detach()
@@ -253,7 +259,10 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       plt.imsave(
         '%s/fake_sample.png' % (opt.outf), fake_img, vmin=0, vmax=1)
       fakes.append(fake_img)
-      recon_img = functions.convert_image_np(netG(z_prev).detach())
+      if opt.concat_input:
+        recon_img = functions.convert_image_np(netG(torch.cat([z_in_fixed, z_prev], axis=1)).detach())
+      else:
+        recon_img = functions.convert_image_np(netG(z_prev).detach())
       plt.imsave(
         '%s/G(z_opt).png' % (opt.outf), recon_img, vmin=0, vmax=1)
       recons.append(recon_img)
