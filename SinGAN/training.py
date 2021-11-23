@@ -159,7 +159,6 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       emb_t = F.interpolate(emb_t, (opt.nzy, opt.nzx))
     else:
       emb_t = F.interpolate(fake_text_img.float(), (opt.nzy, opt.nzx))
-    # emb_t = m_noise(emb_t)
     
     ############################
     # (1) Update D network: maximize D(x) + D(G(z))
@@ -191,12 +190,11 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
         prev = m_image(prev)
 
       if opt.concat_input:
-        z_in = torch.cat([emb_t, prev], axis=1)
+        z_in = torch.cat([prev, m_noise(emb_t)], axis=1)
       else:
-       .z_in = prev
+        z_in = prev
       z_in = z_in.to(opt.device)
-      #prev = prev.to(opt.device)
-      fake = netG(z_in) #netG(prev)
+      fake = netG(z_in)
       gradient_penalty = 0.0
       errD_fake = 0.0
       if scale >= opt.patch_scale:
@@ -229,12 +227,11 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       if alpha != 0:
         loss = nn.MSELoss()
         if opt.concat_input:
-          z_in_fixed = torch.cat([emb_fixed, z_prev], axis=1)
+          z_in_fixed = torch.cat([z_prev, m_noise(emb_fixed)], axis=1)
         else:
-          z_in_fixed = emb_fixed
+          z_in_fixed = z_prev
         z_in_fixed = z_in_fixed.to(opt.device)
-        #z_prev = z_prev.to(opt.device)
-        recon = netG(z_in_fixed)#netG(z_prev)
+        recon = netG(z_in_fixed)
         rec_loss = alpha * loss(recon, real)
         rec_loss.backward(retain_graph=True)
         rec_loss = rec_loss.detach()
@@ -259,10 +256,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       plt.imsave(
         '%s/fake_sample.png' % (opt.outf), fake_img, vmin=0, vmax=1)
       fakes.append(fake_img)
-      if opt.concat_input:
-        recon_img = functions.convert_image_np(netG(torch.cat([z_in_fixed, z_prev], axis=1)).detach())
-      else:
-        recon_img = functions.convert_image_np(netG(z_prev).detach())
+      recon_img = functions.convert_image_np(netG(z_in_fixed).detach())
       plt.imsave(
         '%s/G(z_opt).png' % (opt.outf), recon_img, vmin=0, vmax=1)
       recons.append(recon_img)
