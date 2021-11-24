@@ -225,16 +225,8 @@ class AlignCollate(object):
       self.imgH = imgH
       self.imgW = imgW
       self.keep_ratio_with_pad = keep_ratio_with_pad
-      # self.use_rgb = use_rgb
 
   def __call__(self, images):
-    # if not self.use_rgb:
-    #   grayscale_images = []
-    #   toGrayscale = T.Grayscale(num_output_channels=1)
-    #   for image in images:
-    #     grayscale_image = T.Grayscale(num_output_channels=1)(image)
-    #     grayscale_images.append(grayscale_image)
-
     if self.keep_ratio_with_pad:  # Same concept as 'Rosetta' paper.
       resized_max_w = self.imgW
       input_channel = 3 if images[0].mode == 'RGB' else 1
@@ -252,13 +244,10 @@ class AlignCollate(object):
         resized_image = image.resize((resized_w, self.imgH), Image.BICUBIC)
         resized_images.append(transform(resized_image))
 
-      # print('resized_images[0] shape', resized_images[0].shape)
       image_tensors = torch.cat(resized_images, 0)
-
     else:
       transform = ResizeNormalize((self.imgW, self.imgH))
       image_tensors = [transform(image) for image in images]
-      # print('image_tensors[0] shape', image_tensors[0].shape)
       image_tensors = torch.cat(image_tensors, 0)
 
     return image_tensors

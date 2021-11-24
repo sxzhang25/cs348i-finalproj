@@ -151,6 +151,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
   for (epoch, (fake_text_img, fake_text)) in zip(range(opt.niter), word_bank):
     t1 = time.perf_counter()
     tracemalloc.start()
+    # cv2.imshow('fake_text_img', np.transpose(fake_text_img[0].detach().numpy(), [1, 2, 0]))
 
     # Generate text image embedding.
     fake_text = fake_text[0]
@@ -188,13 +189,16 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
           z_prev = draw_concat(Gs, emb_fixed, reals, in_s[1], 'rec', m_noise, m_image, opt)
           z_prev = m_image(z_prev)
       else:
+        # cv2.imshow('emb_t', np.transpose(emb_t[0].detach().numpy(), [1, 2, 0]))
         prev = draw_concat(Gs, emb_t, reals, in_s[0], 'rand', m_noise, m_image, opt)
+        # cv2.imshow('prev', np.transpose(prev[0].detach().numpy(), [1, 2, 0]))
         prev = m_image(prev)
 
       if opt.concat_input:
         z_in = torch.cat([prev, m_image(emb_t)], axis=1)
       else:
         z_in = prev
+      # cv2.imshow('z_in_im', np.transpose(z_in[0, :3].detach().numpy(), [1, 2, 0]))
       z_in = z_in.to(opt.device)
       fake = netG(z_in)
       gradient_penalty = 0.0
@@ -287,11 +291,12 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
 
 
 def draw_concat(Gs, emb, reals, in_s, mode, m_noise, m_image, opt):
-  G_z = in_s
+  G_z = emb
   if len(Gs) > 0:
     count = 0
     for (G, real_curr, real_next) in zip(Gs, reals, reals[1:]):
-      G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
+      print('G_z, real_curr', G_z.shape, real_curr.shape)
+      G_z = F.interpolate(G_z, (real_curr.shape[2], real_curr.shape[3]))
       emb_ = F.interpolate(emb, (real_curr.shape[2], real_curr.shape[3]))
       #emb_ = emb_.to(opt.device)
       #G_z = G_z.to(opt.device)

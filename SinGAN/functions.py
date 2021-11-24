@@ -428,8 +428,10 @@ def rgb2gray(rgb):
 
 def ocr(roi, width, height, converter, trba_net, opt):
   roi = rgb2gray(roi)
-  ac = AlignCollate(imgH=height, imgW=width, keep_ratio_with_pad=opt.pad)
+  # Flipped width and height because PIL Image and numpy representations are flipped.
+  ac = AlignCollate(imgH=width, imgW=height, keep_ratio_with_pad=opt.pad)
   roi_tensor = ac([roi]).to(opt.device)
+  # cv2.imshow('roi', np.transpose(roi_tensor[0].detach().numpy(), [1, 2, 0]))
 
   # For max length prediction.
   length_for_pred = torch.IntTensor([opt.batch_max_length]).to(opt.device)
@@ -440,7 +442,13 @@ def ocr(roi, width, height, converter, trba_net, opt):
 
 def calc_err_ocr(target_text, fake, converter, trba_net, opt):
   _, c, h, w = fake.shape
+  # cv2.imshow('fake', np.transpose(fake[0].detach().numpy(), [1, 2, 0]))
+  # cv2.waitKey(0)
   final_text = ocr(fake, w, h, converter, trba_net, opt).to(opt.device)
+  _, maxes = torch.max(final_text, axis=1)
+  c_string = [opt.character[int(m)] for m in maxes]
+  string = ''.join(c_string)
+  print(target_text, string)
   target_text_idxs = torch.LongTensor([opt.character.index(c) for c in target_text])
   target_text_idxs = F.pad(target_text_idxs, (0, final_text.shape[0] - len(target_text)))
   target_text_idxs = target_text_idxs.to(opt.device)
