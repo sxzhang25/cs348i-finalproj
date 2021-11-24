@@ -63,7 +63,7 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
     super(GeneratorConcatSkip2CleanAdd, self).__init__()
     self.is_cuda = torch.cuda.is_available()
     N = opt.nfc
-    self.nc_z = opt.nc_z
+    self.nc_im = opt.nc_im
     input_dim = opt.nc_im + opt.nc_z if opt.concat_input else opt.nc_im
     self.head = ConvBlock(
       input_dim,
@@ -96,7 +96,7 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
     x_ = self.body(x_)
     x_ = self.tail(x_)
     ind = int((x.shape[2] - x_.shape[2]) / 2)
-    x = x[:, :self.nc_z, ind:(x.shape[2] - ind), ind:(x.shape[3] - ind)]
+    x = x[:, :self.nc_im, ind:(x.shape[2] - ind), ind:(x.shape[3] - ind)]
     return x + x_
 
 

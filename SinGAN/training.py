@@ -130,6 +130,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
   m_noise = nn.ZeroPad2d(int(pad_noise))
   m_image = nn.ZeroPad2d(int(pad_image))
   emb_fixed = F.interpolate(emb_fixed, (opt.nzy, opt.nzx))
+  emb_fixed = emb_fixed.to(opt.device)
 
   alpha = opt.alpha
 
@@ -159,6 +160,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       emb_t = F.interpolate(emb_t, (opt.nzy, opt.nzx))
     else:
       emb_t = F.interpolate(fake_text_img.float(), (opt.nzy, opt.nzx))
+    emb_t = emb_t.to(opt.device)
     
     ############################
     # (1) Update D network: maximize D(x) + D(G(z))
@@ -179,7 +181,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
           z_prev = emb_fixed
           in_s = [prev, z_prev]
           prev = m_image(prev)
-          z_prev = m_noise(z_prev)
+          z_prev = m_image(z_prev)
         else:
           prev = draw_concat(Gs, emb_t, reals, in_s[0], 'rand', m_noise, m_image, opt)
           prev = m_image(prev)
@@ -190,7 +192,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
         prev = m_image(prev)
 
       if opt.concat_input:
-        z_in = torch.cat([prev, m_noise(emb_t)], axis=1)
+        z_in = torch.cat([prev, m_image(emb_t)], axis=1)
       else:
         z_in = prev
       z_in = z_in.to(opt.device)
@@ -227,7 +229,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       if alpha != 0:
         loss = nn.MSELoss()
         if opt.concat_input:
-          z_in_fixed = torch.cat([z_prev, m_noise(emb_fixed)], axis=1)
+          z_in_fixed = torch.cat([z_prev, m_image(emb_fixed)], axis=1)
         else:
           z_in_fixed = z_prev
         z_in_fixed = z_in_fixed.to(opt.device)
@@ -284,30 +286,25 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
   return in_s, netG    
 
 
-def draw_concat(Gs, emb_t, reals, in_s, mode, m_noise, m_image, opt):
+def draw_concat(Gs, emb, reals, in_s, mode, m_noise, m_image, opt):
   G_z = in_s
   if len(Gs) > 0:
-    if mode == 'rand':
-      count = 0
-      pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2)
-      for (G, real_curr, real_next) in zip(Gs, reals, reals[1:]):
-        G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
-        G_z = m_image(G_z).to(opt.device)
-        z_in = G_z
-        G_z = G(G_z)
-        G_z = imresize(G_z.detach(), 1 / opt.scale_factor, opt)
-        G_z = G_z[:, :, 0:real_next.shape[2], 0:real_next.shape[3]]
-        count += 1
-    if mode == 'rec':
-      count = 0
-      for (G, real_curr, real_next) in zip(Gs, reals, reals[1:]):
-        G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
-        G_z = m_image(G_z).to(opt.device)
-        z_in = G_z
-        G_z = G(G_z)
-        G_z = imresize(G_z.detach(), 1 / opt.scale_factor, opt)
-        G_z = G_z[:, :, 0:real_next.shape[2], 0:real_next.shape[3]]
-        count += 1
+    count = 0
+    for (G, real_curr, real_next) in zip(Gs, reals, reals[1:]):
+      G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3]]
+      emb_ = F.interpolate(emb, (real_curr.shape[2], real_curr.shape[3]))
+      #emb_ = emb_.to(opt.device)
+      #G_z = G_z.to(opt.device)
+      print(emb_.shape, G_z.shape, m_image(emb_).shape, m_image(G_z).shape)
+      if opt.concat_input:
+        z_in = torch.cat([m_image(G_z), m_image(emb_)], axis=1)
+      else:
+        z_in = m_image(G_z)
+      z_in = z_in.to(opt.device)
+      G_z = G(z_in.detach())#G(G_z)
+      G_z = imresize(G_z, 1 / opt.scale_factor, opt)
+      G_z = G_z[:, :, 0:real_next.shape[2], 0:real_next.shape[3]]
+      count += 1
   return G_z
 
 
