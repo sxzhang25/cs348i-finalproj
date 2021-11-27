@@ -19,6 +19,7 @@ class ConvBlock(nn.Sequential):
     self.add_module('norm', nn.BatchNorm2d(out_channel)),
     self.add_module('LeakyRelu', nn.LeakyReLU(0.2, inplace=True))
 
+
 def weights_init(m):
   classname = m.__class__.__name__
   if classname.find('Conv2d') != -1:
@@ -59,12 +60,13 @@ class WDiscriminator(nn.Module):
 
 
 class GeneratorConcatSkip2CleanAdd(nn.Module):
-  def __init__(self, opt):
+  def __init__(self, scale, opt):
     super(GeneratorConcatSkip2CleanAdd, self).__init__()
     self.is_cuda = torch.cuda.is_available()
     N = opt.nfc
     self.nc_im = opt.nc_im
-    input_dim = opt.nc_im + opt.nc_z if opt.concat_input else opt.nc_im
+    self.scale = scale
+    input_dim = opt.nc_im + opt.nc_z if scale <= opt.concat_input else opt.nc_im
     self.head = ConvBlock(
       input_dim,
       N,
