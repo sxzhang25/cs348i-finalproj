@@ -277,7 +277,7 @@ def generate_in2coarsest(reals, scale_v, scale_h, opt):
 def generate_dir2save(opt):
   dir2save = None
   if (opt.mode == 'train') | (opt.mode == 'SR_train'):
-    dir2save = 'TrainedModels/%s,lambda_grad=%f,lambda_ocr=%f,niter=%d,pscale=%d,s=%s,ci=%s/scale_factor=%f,alpha=%d' % (
+    dir2save = 'TrainedModels/%s,lambda_grad=%f,lambda_ocr=%f,niter=%d,pscale=%d,s=%s,ci=%d/scale_factor=%f,alpha=%d' % (
       opt.input_name[:-4], opt.lambda_grad, opt.lambda_ocr, opt.niter, opt.patch_scale, opt.sensitive, opt.concat_input, opt.scale_factor_init, opt.alpha)
   elif (opt.mode == 'animation_train') :
     dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (
@@ -445,11 +445,10 @@ def calc_err_ocr(target_text, fake, converter, trba_net, opt):
   # cv2.imshow('fake', np.transpose(fake[0].detach().numpy(), [1, 2, 0]))
   # cv2.waitKey(0)
   final_text = ocr(fake, w, h, converter, trba_net, opt).to(opt.device)
-  _, maxes = torch.max(final_text, axis=1)
-  c_string = [opt.character[int(m)] for m in maxes]
-  string = ''.join(c_string)
-  print(target_text, string)
-  target_text_idxs = torch.LongTensor([opt.character.index(c) for c in target_text])
+  #_, maxes = torch.max(final_text, axis=1)
+  #c_string = [opt.character[int(m)] for m in maxes]
+  #string = ''.join(c_string)
+  target_text_idxs = torch.LongTensor([converter.character.index(c) for c in target_text])
   target_text_idxs = F.pad(target_text_idxs, (0, final_text.shape[0] - len(target_text)))
   target_text_idxs = target_text_idxs.to(opt.device)
   criterion = nn.CrossEntropyLoss()
