@@ -50,8 +50,8 @@ def get_arguments():
     '--padd_size', type=int, default=0,
     help='Net pad size.')
   parser.add_argument(
-    '--concat_input', action='store_true', default=False, 
-    help='Inject plain text rendering at every generation scale.')
+    '--concat_input', type=int, default=1, 
+    help='Number of scales to inject plain text rendering at every generation.')
         
   # Pyramid parameters.
   parser.add_argument(

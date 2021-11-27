@@ -92,8 +92,8 @@ def train(opt, Gs, word_bank, converter, trba_net, resnet, emb_fixed, height, wi
       '%s/real_scale.png' %  (opt.outf), 
       functions.convert_image_np(reals[scale_num]), vmin=0, vmax=1)
 
-    D_curr, G_curr = init_models(opt)
-    if (nfc_prev == opt.nfc):
+    D_curr, G_curr = init_models(scale_num, opt)
+    if (nfc_prev == opt.nfc and scale_num <= opt.concat_input):
       G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_, scale_num - 1)))
       D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_, scale_num - 1)))
 
@@ -184,17 +184,17 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
           prev = m_image(prev)
           z_prev = m_image(z_prev)
         else:
-          prev = draw_concat(Gs, emb_t, reals, in_s[0], 'rand', m_noise, m_image, opt)
+          prev = draw_concat(Gs, emb_t, reals, in_s[0], 'rand', m_noise, m_image, scale, opt)
           prev = m_image(prev)
-          z_prev = draw_concat(Gs, emb_fixed, reals, in_s[1], 'rec', m_noise, m_image, opt)
+          z_prev = draw_concat(Gs, emb_fixed, reals, in_s[1], 'rec', m_noise, m_image, scale, opt)
           z_prev = m_image(z_prev)
       else:
         # cv2.imshow('emb_t', np.transpose(emb_t[0].detach().numpy(), [1, 2, 0]))
-        prev = draw_concat(Gs, emb_t, reals, in_s[0], 'rand', m_noise, m_image, opt)
+        prev = draw_concat(Gs, emb_t, reals, in_s[0], 'rand', m_noise, m_image, scale, opt)
         # cv2.imshow('prev', np.transpose(prev[0].detach().numpy(), [1, 2, 0]))
         prev = m_image(prev)
 
-      if opt.concat_input:
+      if scale <= opt.concat_input:
         z_in = torch.cat([prev, m_image(emb_t)], axis=1)
       else:
         z_in = prev
@@ -232,7 +232,7 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
       errG.backward(retain_graph=True)
       if alpha != 0:
         loss = nn.MSELoss()
-        if opt.concat_input:
+        if scale <= opt.concat_input:
           z_in_fixed = torch.cat([z_prev, m_image(emb_fixed)], axis=1)
         else:
           z_in_fixed = z_prev
@@ -290,32 +290,28 @@ def train_single_scale(netD, netG, resnet, converter, trba_net, word_bank, emb_f
   return in_s, netG    
 
 
-def draw_concat(Gs, emb, reals, in_s, mode, m_noise, m_image, opt):
+def draw_concat(Gs, emb, reals, in_s, mode, m_noise, m_image, scale, opt):
   G_z = emb
   if len(Gs) > 0:
     count = 0
     for (G, real_curr, real_next) in zip(Gs, reals, reals[1:]):
-      print('G_z, real_curr', G_z.shape, real_curr.shape)
       G_z = F.interpolate(G_z, (real_curr.shape[2], real_curr.shape[3]))
       emb_ = F.interpolate(emb, (real_curr.shape[2], real_curr.shape[3]))
-      #emb_ = emb_.to(opt.device)
-      #G_z = G_z.to(opt.device)
-      print(emb_.shape, G_z.shape, m_image(emb_).shape, m_image(G_z).shape)
-      if opt.concat_input:
+      if G.scale <= opt.concat_input:
         z_in = torch.cat([m_image(G_z), m_image(emb_)], axis=1)
       else:
         z_in = m_image(G_z)
       z_in = z_in.to(opt.device)
-      G_z = G(z_in.detach())#G(G_z)
+      G_z = G(z_in.detach())
       G_z = imresize(G_z, 1 / opt.scale_factor, opt)
       G_z = G_z[:, :, 0:real_next.shape[2], 0:real_next.shape[3]]
       count += 1
   return G_z
 
 
-def init_models(opt):
+def init_models(scale, opt):
   # Initialize generator.
-  netG = models.GeneratorConcatSkip2CleanAdd(opt).to(opt.device)
+  netG = models.GeneratorConcatSkip2CleanAdd(scale, opt).to(opt.device)
   netG.apply(models.weights_init)
   if opt.netG != '':
     netG.load_state_dict(torch.load(opt.netG))
