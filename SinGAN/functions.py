@@ -250,18 +250,19 @@ def creat_reals_pyramid(real, reals, opt):
 def load_trained_pyramid(opt, mode_='train'):
   mode = opt.mode
   opt.mode = 'train'
-  if (mode == 'animation_train') | (mode == 'SR_train') | (mode == 'paint_train'):
-    opt.mode = mode
   dir = generate_dir2save(opt)
-  if(os.path.exists(dir)):
-    Gs = torch.load('%s/Gs.pth' % dir)
-    Zs = torch.load('%s/Zs.pth' % dir)
-    reals = torch.load('%s/reals.pth' % dir)
-    NoiseAmp = torch.load('%s/NoiseAmp.pth' % dir)
+  # Gs = []
+  if (os.path.exists(dir)):
+    Gs = torch.load('%s/Gs.pth' % dir, map_location=opt.device)
+    reals = torch.load('%s/reals.pth' % dir, map_location=opt.device)
+    # for scale in os.listdir(dir):
+    #   if os.path.isdir(os.path.join(dir, scale)):
+    #     G = torch.load('%s/%s/netG.pth' % (dir, scale), map_location=opt.device)
+    #     Gs.append(G)
   else:
     print('No appropriate trained model is exist, please train first.')
   opt.mode = mode
-  return Gs, Zs, reals, NoiseAmp
+  return Gs, reals
 
 
 def generate_in2coarsest(reals, scale_v, scale_h, opt):
@@ -276,36 +277,12 @@ def generate_in2coarsest(reals, scale_v, scale_h, opt):
 
 def generate_dir2save(opt):
   dir2save = None
-  if (opt.mode == 'train') | (opt.mode == 'SR_train'):
+  if (opt.mode == 'train'):
     dir2save = 'TrainedModels/%s,lambda_grad=%f,lambda_ocr=%f,niter=%d,pscale=%d,s=%s,ci=%d/scale_factor=%f,alpha=%d' % (
       opt.input_name[:-4], opt.lambda_grad, opt.lambda_ocr, opt.niter, opt.patch_scale, opt.sensitive, opt.concat_input, opt.scale_factor_init, opt.alpha)
-  elif (opt.mode == 'animation_train') :
-    dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (
-      opt.input_name[:-4], opt.scale_factor_init)
-  elif (opt.mode == 'paint_train') :
-    dir2save = 'TrainedModels/%s/scale_factor=%f_paint/start_scale=%d' % (
-      opt.input_name[:-4], opt.scale_factor_init, opt.paint_start_scale)
-  elif opt.mode == 'random_samples':
-    dir2save = '%s/RandomSamples/%s/gen_start_scale=%d' % (
-      opt.out,opt.input_name[:-4], opt.gen_start_scale)
-  elif opt.mode == 'random_samples_arbitrary_sizes':
-    dir2save = '%s/RandomSamples_ArbitrerySizes/%s/scale_v=%f_scale_h=%f' % (
-      opt.out,opt.input_name[:-4], opt.scale_v, opt.scale_h)
-  elif opt.mode == 'animation':
-    dir2save = '%s/Animation/%s' % (opt.out, opt.input_name[:-4])
-  elif opt.mode == 'SR':
-    dir2save = '%s/SR/%s' % (opt.out, opt.sr_factor)
-  elif opt.mode == 'harmonization':
-    dir2save = '%s/Harmonization/%s/%s_out' % (
-      opt.out, opt.input_name[:-4], opt.ref_name[:-4])
-  elif opt.mode == 'editing':
-    dir2save = '%s/Editing/%s/%s_out' % (
-      opt.out, opt.input_name[:-4], opt.ref_name[:-4])
-  elif opt.mode == 'paint2image':
-    dir2save = '%s/Paint2image/%s/%s_out' % (
-      opt.out, opt.input_name[:-4], opt.ref_name[:-4])
-    if opt.quantization_flag:
-      dir2save = '%s_quantized' % dir2save
+  elif opt.mode == 'new_samples':
+    dir2save = '%s/NewSamples/%s' % (
+      opt.out,opt.input_name[:-4])
   return dir2save
 
 
