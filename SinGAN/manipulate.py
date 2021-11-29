@@ -127,15 +127,17 @@ def SinGAN_generate(text, width, height, Gs, reals, opt, n=0):
     z_in = z_in.to(opt.device)
     image = G(z_in.detach())
     images.append(image)
-    if n == len(reals) - 1:
-      dir2save = functions.generate_dir2save(opt)
-      try:
-        os.makedirs(dir2save)
-      except OSError:
-        pass
-      plt.imsave(
-        '%s/%s.png' % (dir2save, text), 
-        functions.convert_image_np(image.detach()), vmin=0, vmax=1)
+    # if n == len(reals) - 1:
+    dir2save = functions.generate_dir2save(opt)
+    subfolder = 'lambda_grad=%f,lambda_ocr=%f,niter=%d,pscale=%d,s=%s,ci=%d' % (
+      opt.lambda_grad, opt.lambda_ocr, opt.niter, opt.patch_scale, opt.sensitive, opt.concat_input)
+    try:
+      os.makedirs(os.path.join(dir2save, subfolder))
+    except OSError:
+      pass
+    plt.imsave(
+      '%s/%s/%s_%d.png' % (dir2save, subfolder, text, n), 
+      functions.convert_image_np(image.detach()), vmin=0, vmax=1)
     n += 1
 
   return image
